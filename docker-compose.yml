@@ -1,7 +1,7 @@
-# RetailPulse — Infraestructura local
-# Equivalencias con Azure:
+# RetailPulse — Local Infrastructure
+# Azure equivalents:
 #   sqlserver  → Azure SQL Database
-#   kafka      → Azure Event Hubs (Kafka-compatible)
+#   kafka      → Azure Event Hubs (Kafka-compatible API)
 #   minio      → Azure Data Lake Storage Gen2
 #   keycloak   → Azure AD B2C
 #   redis      → Azure Cache for Redis
@@ -9,9 +9,9 @@
 
 services:
 
-  # ── BASE DE DATOS ──────────────────────────────────────────────
-  # SQL Server Developer Edition — gratis para desarrollo local
-  # Conexion: localhost:1433 | usuario: sa | password: RetailPulse@Dev2025
+  # ── DATABASE ───────────────────────────────────────────────────
+  # SQL Server Developer Edition — free for local development
+  # Connection: localhost:1433 | user: sa | password: RetailPulse@Dev2025
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: retailpulse-sql
@@ -22,7 +22,7 @@ services:
     ports:
       - "1433:1433"
     volumes:
-      # Persiste los datos aunque el container se detenga
+      # Persists data between container restarts
       - sqlserver-data:/var/opt/mssql
     healthcheck:
       test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "RetailPulse@Dev2025", "-Q", "SELECT 1"]
@@ -30,8 +30,7 @@ services:
       retries: 5
 
   # ── EVENT STREAMING ────────────────────────────────────────────
-  # Zookeeper — coordinador requerido por Kafka
-  # No se accede directamente, es interno de Kafka
+  # Zookeeper — required coordinator for Kafka, not accessed directly
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: retailpulse-zookeeper
@@ -39,9 +38,9 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
-  # Kafka — message broker donde el backend publica domain events
-  # OrderPlaced, StockUpdated, PriceChanged fluyen por aqui
-  # Conexion: localhost:9092
+  # Kafka — message broker for domain events
+  # OrderPlaced, StockUpdated, PriceChanged flow through here
+  # Connection: localhost:9092
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: retailpulse-kafka
@@ -55,15 +54,15 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      # Crea topics automaticamente cuando el backend los necesita
+      # Automatically creates topics when the backend needs them
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
       retries: 5
 
-  # Kafka UI — interfaz visual para ver topics y mensajes
-  # Util para debuggear eventos del dominio en desarrollo
+  # Kafka UI — visual interface to inspect topics and messages
+  # Useful for debugging domain events during development
   # URL: http://localhost:8090
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -77,10 +76,10 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
   # ── DATA LAKE ──────────────────────────────────────────────────
-  # MinIO — almacenamiento de objetos compatible con S3
-  # Aqui viven las capas Bronze, Silver y Gold del pipeline
-  # API: localhost:9000 | Consola web: http://localhost:9001
-  # Usuario: minioadmin | Password: minioadmin123
+  # MinIO — S3-compatible object storage
+  # Hosts Bronze, Silver and Gold layers of the data pipeline
+  # API: localhost:9000 | Console: http://localhost:9001
+  # User: minioadmin | Password: minioadmin123
   minio:
     image: minio/minio:latest
     container_name: retailpulse-minio
@@ -98,11 +97,11 @@ services:
       interval: 10s
       retries: 3
 
-  # ── AUTENTICACION ──────────────────────────────────────────────
-  # Keycloak — identity provider con soporte OIDC/OAuth2
-  # Maneja login, tokens JWT y roles de usuarios
+  # ── AUTHENTICATION ─────────────────────────────────────────────
+  # Keycloak — OIDC/OAuth2 identity provider
+  # Handles login, JWT tokens and user roles
   # URL: http://localhost:8080 | Admin: admin / admin
-  # dev-mem = base de datos en memoria, reinicia con el container
+  # dev-mem = in-memory database, resets on container restart
   keycloak:
     image: quay.io/keycloak/keycloak:23.0
     container_name: retailpulse-keycloak
@@ -115,9 +114,9 @@ services:
     command: start-dev
 
   # ── CACHE ──────────────────────────────────────────────────────
-  # Redis — cache distribuida para tokens de sesion y rate limiting
-  # Tambien usado por SignalR para escalar notificaciones
-  # Conexion: localhost:6379
+  # Redis — distributed cache for session tokens and rate limiting
+  # Also used by SignalR to scale real-time notifications
+  # Connection: localhost:6379
   redis:
     image: redis:7-alpine
     container_name: retailpulse-redis
@@ -129,9 +128,9 @@ services:
       retries: 3
 
   # ── DATA PIPELINE ──────────────────────────────────────────────
-  # Jupyter con PySpark — equivalente local de Azure Databricks
-  # Aqui escribimos los notebooks de transformacion Bronze→Silver→Gold
-  # URL: http://localhost:8888 (el token aparece en los logs)
+  # Jupyter with PySpark — local equivalent of Azure Databricks
+  # Used for Bronze → Silver → Gold transformation notebooks
+  # URL: http://localhost:8888 (token shown in container logs)
   jupyter:
     image: jupyter/pyspark-notebook:latest
     container_name: retailpulse-jupyter
@@ -140,11 +139,11 @@ services:
     environment:
       JUPYTER_ENABLE_LAB: "yes"
     volumes:
-      # Los notebooks se guardan en ./notebooks del proyecto
+      # Notebooks are saved to ./notebooks in the project root
       - ./notebooks:/home/jovyan/work
 
-# ── VOLUMENES ──────────────────────────────────────────────────
-# Persisten datos entre reinicios de containers
+# ── VOLUMES ────────────────────────────────────────────────────
+# Persist data between container restarts
 volumes:
   sqlserver-data:
   minio-data:
