@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+*.nupkg
+
+# Secrets — nunca en repo
+**/appsettings.Production.json
+**/appsettings.Staging.json
+
+# Docker override local
+docker-compose.override.yml
+
+# Python / notebooks
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Notas personales
+notebooks/personal-notes/
+
+# Bicep output
+.terraform/
+
+# OS
+.DS_Store
+Thumbs.db
